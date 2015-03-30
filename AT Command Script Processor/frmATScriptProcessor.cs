@@ -85,140 +85,226 @@ namespace AT_Command_Script_Processor
 
         private void btnRun_Click(object sender, EventArgs e)
         {
-        string SCRFile=tssStatusScrFile.Text.Trim();
-        txtResult.Clear();
-        Application.DoEvents();
-        if(File.Exists(SCRFile)==true)
+            string SCRFile = tssStatusScrFile.Text.Trim();
+            txtResult.Clear();
+            Application.DoEvents();
+            if (File.Exists(SCRFile) == true)
             {
-            SerialPort mySer=new SerialPort(cmbSerial.SelectedItem.ToString(),int.Parse(cmbBaud.SelectedItem.ToString()));
-            mySer.WriteBufferSize=1000;
-            mySer.ReadBufferSize=(int)numRXBuffSize.Value;
-            mySer.Handshake=(Handshake)Enum.Parse( typeof(Handshake),cmbHandShaking.SelectedItem.ToString());
-            mySer.WriteTimeout=1000;
-            try
-                {
-                string [] FileAllLines=File.ReadAllLines(SCRFile);
-                
+                SerialPort mySer = new SerialPort(cmbSerial.SelectedItem.ToString(), int.Parse(cmbBaud.SelectedItem.ToString()));
+                mySer.WriteBufferSize = 1000;
+                mySer.ReadBufferSize = (int)numRXBuffSize.Value;
+                mySer.Handshake = (Handshake)Enum.Parse(typeof(Handshake), cmbHandShaking.SelectedItem.ToString());
+                mySer.WriteTimeout = 1000;
                 try
-                    {mySer.Open();}
-                catch
-                    {
-                    MessageBox.Show("Error Opening Serial Port!");
-                    return;
-                    }
-                btnRun.Enabled=false;
-                foreach(string x in FileAllLines)
-                    {
-                    string temp=x.Trim();
-                    if(temp.StartsWith(@"//"))
-                        continue;
-                    
-                    string [] spliString=temp.Split(new char[]{'|'},StringSplitOptions.RemoveEmptyEntries);
-                    if(spliString.Length!=4)
-                        continue;
+                {
+                    string[] FileAllLines = File.ReadAllLines(SCRFile);
 
-                    int delay=0;    
-                    bool boolReadRx=false;
-                    string ATcmd="";
+                    IAtScriptProcessing iAtScriptProc = new AtScriptProcessing();
+                    var ret = iAtScriptProc.ProcessArrayString(FileAllLines);
 
                     try
-                        {
-                        delay=int.Parse(spliString[2].Trim());    
-                        boolReadRx=Convert.ToBoolean(spliString[1].Trim());
-                        ATcmd=spliString[0].Trim();
-                        }
+                    { mySer.Open(); }
                     catch
-                        {
-                        MessageBox.Show("Error Parsing Data, Please Recheck AT Script File: " + temp,FRM_TITLE,MessageBoxButtons.OK,MessageBoxIcon.Stop);
+                    {
+                        MessageBox.Show("Error Opening Serial Port!");
                         return;
-                        }
-
-                    mySer.DiscardInBuffer();
-
-                    if(ATcmd.StartsWith("__@HEX")) // if special command
-                        {
-                        txtResult.AppendText("Sending Command: " + ATcmd);
-                        txtResult.AppendText("\r\n");
-                        try
-                            {
-                            string []splitstr=ATcmd.Split(new char[]{'='},StringSplitOptions.RemoveEmptyEntries);
-                            byte ByToSend=Convert.ToByte(splitstr[1],16);
-                            temp=String.Format("Special Command: Sending Hex Data 0x{0:X2}\r\n", ByToSend);
-                            txtResult.AppendText(temp);
-                            mySer.Write(new byte[]{ByToSend},0,1);
-                            }
-                        catch
-                            {
-                            MessageBox.Show("Error Parsing Data, Please Recheck AT Script File: " + temp,FRM_TITLE,MessageBoxButtons.OK,MessageBoxIcon.Stop);
-                            return;
-                            }
-                        }
-                    else
-                        {
-                        txtResult.AppendText("Sending Command: " + ATcmd);
-                        txtResult.AppendText("\r\n");
-                        try
-                            {
-                            mySer.Write(ATcmd);
-                            mySer.Write(new byte[]{0x0D},0,1);
-                            }
-                        catch
-                            {
-                            MessageBox.Show("Error Sending Data to GSM Modem!",FRM_TITLE,MessageBoxButtons.OK,MessageBoxIcon.Stop);
-                            return;
-                            }
-                        }
-
-                    txtResult.AppendText("Delay: " + delay + "msec");
-                    txtResult.AppendText("\r\n");
-                    Thread.Sleep(delay);
-                    if(boolReadRx)
-                        {
-                        string readSer=mySer.ReadExisting();
-
-                        if(chkBinMode.Checked)
-                            {
-                            char [] readChar= readSer.ToCharArray();
-                            StringBuilder strb=new StringBuilder();
-
-                            foreach(char mychar in readChar)
-                                {
-                                strb.AppendFormat("<0x{0:X2}>",(int)mychar);
-                                }
-                            readSer=strb.ToString();
-                            }
-
-                        else if(chkShowEndHex.Checked)
-                            {
-                            for(int ctr=0;ctr<0x20;ctr++)
-                                {
-                                readSer =readSer.Replace(String.Format("{0}",(char)ctr),String.Format("<0x{0:X2}>",ctr));
-                                }
-                            }
-                        txtResult.AppendText("Received Reply:\r\n");
-                        txtResult.AppendText(readSer);
-                        txtResult.AppendText("\r\n");
-                        }
-                    txtResult.AppendText("===========================\r\n");
                     }
+                    btnRun.Enabled = false;
+
+                    foreach (var x in ret)
+                    {
+                        string temp;
+                        mySer.DiscardInBuffer();
+
+                        if (x.IsSpecialCommand)
+                        {
+                            temp = String.Format("Special Command: Sending Hex Data 0x{0:X2}\r\n", x.ByteToSend);
+                            txtResult.AppendText(temp);
+                            mySer.Write(new byte[] { x.ByteToSend }, 0, 1);
+                        }
+                        else
+                        {
+                            txtResult.AppendText("Sending Command: " + x.ATCommandToSend);
+                            txtResult.AppendText("\r\n");
+                            try
+                            {
+                                mySer.Write(x.ATCommandToSend);
+                                mySer.Write(new byte[] { 0x0D }, 0, 1);
+                            }
+                            catch
+                            {
+                                MessageBox.Show("Error Sending Data to GSM Modem!", FRM_TITLE, MessageBoxButtons.OK, MessageBoxIcon.Stop);
+                                return;
+                            }
+                        }
+
+                        txtResult.AppendText("Delay: " + x.Delay + "msec");
+                        txtResult.AppendText("\r\n");
+                        Thread.Sleep(x.Delay);
+                        if (x.ReceiveData)
+                        {
+                            string readSer = mySer.ReadExisting();
+
+                            if (chkBinMode.Checked)
+                            {
+                                char[] readChar = readSer.ToCharArray();
+
+                                StringBuilder strb = new StringBuilder();
+
+                                foreach (char mychar in readChar)
+                                {
+                                    strb.AppendFormat("<0x{0:X2}>", (int)mychar);
+                                }
+                                readSer = strb.ToString();
+                            }
+
+                            else if (chkShowEndHex.Checked)
+                            {
+                                for (int ctr = 0; ctr < 0x20; ctr++)
+                                {
+                                    readSer = readSer.Replace(String.Format("{0}", (char)ctr), String.Format("<0x{0:X2}>", ctr));
+                                }
+                            }
+
+                            txtResult.AppendText("Received Reply:\r\n");
+                            txtResult.AppendText(readSer);
+                            txtResult.AppendText("\r\n");
+                        }
+                        txtResult.AppendText("===========================\r\n");
+                    }
+
+
                 }
-            finally
+                finally
                 {
-                btnRun.Enabled=true;
+                btnRun.Enabled = true;
                 mySer.Dispose();
                 System.GC.Collect();
                 }
-            txtResult.AppendText("===========================\r\n");
-            txtResult.AppendText("===========END===========\r\n");
+                txtResult.AppendText("===========================\r\n");
+                txtResult.AppendText("===========END===========\r\n");
             }
-        else
-            {
-            if(String.IsNullOrEmpty(SCRFile))
-                MessageBox.Show("Choose file first!",FRM_TITLE,MessageBoxButtons.OK,MessageBoxIcon.Stop);
             else
-                MessageBox.Show("File does not exist!",FRM_TITLE,MessageBoxButtons.OK,MessageBoxIcon.Stop);
+            {
+                if (String.IsNullOrEmpty(SCRFile))
+                    MessageBox.Show("Choose file first!", FRM_TITLE, MessageBoxButtons.OK, MessageBoxIcon.Stop);
+                else
+                    MessageBox.Show("File does not exist!", FRM_TITLE, MessageBoxButtons.OK, MessageBoxIcon.Stop);
             }
         }
+
+        //        foreach(string x in FileAllLines)
+        //            {
+        //            string temp=x.Trim();
+        //            if(temp.StartsWith(@"//"))
+        //                continue;
+                    
+        //            string [] spliString=temp.Split(new char[]{'|'},StringSplitOptions.RemoveEmptyEntries);
+        //            if(spliString.Length!=4)
+        //                continue;
+
+        //            int delay=0;    
+        //            bool boolReadRx=false;
+        //            string ATcmd="";
+
+        //            try
+        //                {
+        //                delay=int.Parse(spliString[2].Trim());    
+        //                boolReadRx=Convert.ToBoolean(spliString[1].Trim());
+        //                ATcmd=spliString[0].Trim();
+        //                }
+        //            catch
+        //                {
+        //                MessageBox.Show("Error Parsing Data, Please Recheck AT Script File: " + temp,FRM_TITLE,MessageBoxButtons.OK,MessageBoxIcon.Stop);
+        //                return;
+        //                }
+
+        //            mySer.DiscardInBuffer();
+
+        //            if(ATcmd.StartsWith("__@HEX")) // if special command
+        //                {
+        //                txtResult.AppendText("Sending Command: " + ATcmd);
+        //                txtResult.AppendText("\r\n");
+        //                try
+        //                    {
+        //                    string []splitstr=ATcmd.Split(new char[]{'='},StringSplitOptions.RemoveEmptyEntries);
+        //                    byte ByToSend=Convert.ToByte(splitstr[1],16);
+        //                    temp=String.Format("Special Command: Sending Hex Data 0x{0:X2}\r\n", ByToSend);
+        //                    txtResult.AppendText(temp);
+        //                    mySer.Write(new byte[]{ByToSend},0,1);
+        //                    }
+        //                catch
+        //                    {
+        //                    MessageBox.Show("Error Parsing Data, Please Recheck AT Script File: " + temp,FRM_TITLE,MessageBoxButtons.OK,MessageBoxIcon.Stop);
+        //                    return;
+        //                    }
+        //                }
+        //            else
+        //                {
+        //                txtResult.AppendText("Sending Command: " + ATcmd);
+        //                txtResult.AppendText("\r\n");
+        //                try
+        //                    {
+        //                    mySer.Write(ATcmd);
+        //                    mySer.Write(new byte[]{0x0D},0,1);
+        //                    }
+        //                catch
+        //                    {
+        //                    MessageBox.Show("Error Sending Data to GSM Modem!",FRM_TITLE,MessageBoxButtons.OK,MessageBoxIcon.Stop);
+        //                    return;
+        //                    }
+        //                }
+
+        //            txtResult.AppendText("Delay: " + delay + "msec");
+        //            txtResult.AppendText("\r\n");
+        //            Thread.Sleep(delay);
+        //            if(boolReadRx)
+        //                {
+        //                string readSer=mySer.ReadExisting();
+
+        //                if(chkBinMode.Checked)
+        //                    {
+        //                    char [] readChar= readSer.ToCharArray();
+        //                    StringBuilder strb=new StringBuilder();
+
+        //                    foreach(char mychar in readChar)
+        //                        {
+        //                        strb.AppendFormat("<0x{0:X2}>",(int)mychar);
+        //                        }
+        //                    readSer=strb.ToString();
+        //                    }
+
+        //                else if(chkShowEndHex.Checked)
+        //                    {
+        //                    for(int ctr=0;ctr<0x20;ctr++)
+        //                        {
+        //                        readSer =readSer.Replace(String.Format("{0}",(char)ctr),String.Format("<0x{0:X2}>",ctr));
+        //                        }
+        //                    }
+        //                txtResult.AppendText("Received Reply:\r\n");
+        //                txtResult.AppendText(readSer);
+        //                txtResult.AppendText("\r\n");
+        //                }
+        //            txtResult.AppendText("===========================\r\n");
+        //            }
+        //        }
+        //    finally
+        //        {
+        //        btnRun.Enabled=true;
+        //        mySer.Dispose();
+        //        System.GC.Collect();
+        //        }
+        //    txtResult.AppendText("===========================\r\n");
+        //    txtResult.AppendText("===========END===========\r\n");
+        //    }
+        //else
+        //    {
+        //    if(String.IsNullOrEmpty(SCRFile))
+        //        MessageBox.Show("Choose file first!",FRM_TITLE,MessageBoxButtons.OK,MessageBoxIcon.Stop);
+        //    else
+        //        MessageBox.Show("File does not exist!",FRM_TITLE,MessageBoxButtons.OK,MessageBoxIcon.Stop);
+        //    }
+        //}
 
 
 
