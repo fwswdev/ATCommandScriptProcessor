@@ -35,6 +35,7 @@ using System.Text;
 using System.Windows.Forms;
 using System.IO.Ports;
 using System.IO;
+using System.Threading;
 
 namespace AT_Command_Script_Processor
 {
@@ -170,7 +171,7 @@ namespace AT_Command_Script_Processor
 
                     txtResult.AppendText("Delay: " + delay + "msec");
                     txtResult.AppendText("\r\n");
-                    System.Threading.Thread.Sleep(delay);
+                    Thread.Sleep(delay);
                     if(boolReadRx)
                         {
                         string readSer=mySer.ReadExisting();
@@ -212,12 +213,14 @@ namespace AT_Command_Script_Processor
             }
         else
             {
-            if(SCRFile==String.Empty)
+            if(String.IsNullOrEmpty(SCRFile))
                 MessageBox.Show("Choose file first!",FRM_TITLE,MessageBoxButtons.OK,MessageBoxIcon.Stop);
             else
                 MessageBox.Show("File does not exist!",FRM_TITLE,MessageBoxButtons.OK,MessageBoxIcon.Stop);
-            }   
+            }
         }
+
+
 
         private void btnCopyToClipBoard_Click(object sender, EventArgs e)
         {
