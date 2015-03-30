@@ -19,6 +19,9 @@ namespace AT_Command_Script_Processor
         public bool IsSpecialCommand { get; set; }
         public byte ByteToSend { get; set; }
         public string ATCommandToSend { get; set; }
+        public int Delay { get; set; }
+        public bool ReceiveData { get; set; }
+
         public static AtScriptProcessingData GetContainer()
         {
             var a = new AtScriptProcessingData();
@@ -84,7 +87,8 @@ namespace AT_Command_Script_Processor
                     atScriptData.ATCommandToSend = ATcmd;
                 }
 
-                
+                atScriptData.Delay = delay;
+                atScriptData.ReceiveData = boolReadRx;
                 lstAtScriptData.Add(atScriptData);
             }
 

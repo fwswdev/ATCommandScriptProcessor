@@ -14,7 +14,7 @@ namespace UnitTest
             string [] arrayString = new string[]
                 {
                     "//asdfasda",
-                    "__@HEX = 0xAA|True|500|This is a comment",
+                    "__@HEX = 0xAA|True|530|This is a comment",
                     "AT To Send|False|500|This is a comment"
                 };
 
@@ -23,9 +23,13 @@ namespace UnitTest
 
             Assert.AreEqual(true, ret[0].IsSpecialCommand);
             Assert.AreEqual(0xAA, ret[0].ByteToSend);
+            Assert.AreEqual(true, ret[0].ReceiveData);
+            Assert.AreEqual(530, ret[0].Delay);
 
             Assert.AreEqual(false, ret[1].IsSpecialCommand);
             Assert.AreEqual("AT To Send", ret[1].ATCommandToSend);
+            Assert.AreEqual(false, ret[1].ReceiveData);
+            Assert.AreEqual(500, ret[1].Delay);
         }
     }
 }
