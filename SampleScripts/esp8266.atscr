@@ -1,0 +1,10 @@
+// For ESP8266 AT Command
+
+AT|True|100|None
+AT+GMR|True|100|None
+AT+CWJAP?|True|200|None
+AT+CIFSR|True|500|None
+AT+CIPMUX=1|True|100|None
+AT+CIPSERVER=1,80|True|100|None
+
+
